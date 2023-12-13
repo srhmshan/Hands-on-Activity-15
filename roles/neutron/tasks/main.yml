@@ -1,0 +1,59 @@
+
+- name: Install Neutron components
+  apt:
+    name: neutron-linuxbridge-agent
+  when: ansible_distribution == "Ubuntu"
+
+- name: Configure RabbitMQ message queue access
+  copy:
+    dest: /etc/neutron/neutron.conf
+    content: |
+      [DEFAULT]
+      transport_url = rabbit://openstack:1234@controller
+
+- name: Configure Identity service access
+  copy:
+    dest: /etc/neutron/neutron.conf
+    content: |
+      [DEFAULT]
+      auth_strategy = keystone
+      [keystone_authtoken]
+      www_authenticate_uri = http://controller:5000
+      auth_url = http://controller:5000
+      memcached_servers = controller:11211
+      auth_type = password
+      project_domain_name = default
+      user_domain_name = default
+      project_name = service
+      username = neutron
+      password = 1234
+
+- name: Configure the lock path
+  copy:
+    dest: /etc/neutron/neutron.conf
+    content: |
+      [oslo_currency]
+      lock_path = /var/lib/neutron/tmp
+
+
+- name: Configure access parameters
+  copy:
+    dest: /etc/nova/nova.conf
+    content: |
+      [neutron]
+      auth_url = http://controller:5000
+      auth_type = password
+      project_domain_name = default
+      user_domain_name = default
+      region_name = RegionOne
+      project_name = service
+      username = neutron
+      password = 1234
+
+- name: Restart the compute service on Ubuntu
+  shell: service nova-compute restart
+  when: ansible_distribution == "Ubuntu"
+
+- name: Restart the Linux bridge agent on Ubuntu
+  shell: service neutron-linuxbridge-agent restart
+  when: ansible_distribution == "Ubuntu"

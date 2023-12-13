@@ -1,0 +1,134 @@
+
+- name: Install Cinder packages on controller node
+  apt:
+    name: cinder-api
+
+- name: Install Cinder scheduler
+  shell: sudo apt install cinder-scheduler
+
+- name: Configure database access for Cinder on controller node
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [database]
+      connection = mysql+pymysql://cinder:1234@controller/cinder
+
+- name: Configure RabbitMQ message queue access for Cinder
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [DEFAULT]
+      transport_url = rabbit://openstack:1234@controller
+
+- name: Configure identity services access for Cinder
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [DEFAULT]
+      auth_strategy = keystone
+      [keystone_authtoken]
+      www_authenticate_uri = http://controller:5000
+      auth_url = http://controller:5000
+      memcached_servers = controller:11211
+      auth_type = password
+      project_domain_name = default
+      user_domain_name = default
+      project_name = service
+      username = cinder
+      password = 1234
+
+- name: Configure my_ip option for Cinder on controller node
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [DEFAULT]
+      my_ip = 192.168.56.137
+
+- name: Configure lock path for Cinder on controller node
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [oslo_concurrency]
+      lock_path = /var/lib/cinder/tmp
+
+- name: Populate the block storage database for Cinder
+  shell: su -s /bin/sh -c "cinder-manage db sync" cinder
+
+- name: Configure Nova for block storage
+  copy:
+    dest: /etc/nova/nova.conf
+    content: |
+      [cinder]
+      os_region_name = RegionOne
+
+- name: Install Nova API
+  shell: sudo apt install nova-api
+
+- name: Restart Nova API service
+  shell: service nova-api start
+
+- name: Restart Cinder services on controller node
+  shell: service cinder-scheduler start
+  shell: sudo systemctl start apache2
+
+- name: Install utility packages for storage node
+  apt:
+    name:
+       - lvm2
+       - thin-provisioning-tools
+
+- name: Create LVM physical volume /dev/sdb
+  file:
+    path: /dev/sdb
+    state: directory
+
+- name: Create LVM volume group cinder-volume
+  shell: sudo touch cinder-volumes /dev/sdb
+
+- name: Install Cinder packages on storage node
+  apt:
+    name:
+       - cinder-volume
+       - tgt
+
+- name: Configure LVM backend for Cinder on storage node
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [lvm]
+      volume_driver = cinder.volume.drivers.lvm.LVMVolumeDriver
+      volume_group = cinder-volumes
+      target_protocol = iscsi
+      target_helper = tgtadm
+
+- name: Enable LVM backend for Cinder
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [DEFAULT]
+      enabled_backends = lvm
+
+- name: Configure image service API location for Cinder
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [DEFAULT]
+      glance_api_servers = http://controller:9292
+
+- name: Restart block storage volume service on storage node
+  shell: service tgt restart
+
+- name: Restart block storage volume service on storage node (2)
+  shell: service cinder-volume restart
+
+- name: Install Cinder backup service
+  apt:
+    name: cinder-backup
+
+- name: Configure backup options for Cinder
+  copy:
+    dest: /etc/cinder/cinder.conf
+    content: |
+      [DEFAULT]
+      backup_driver = cinder.backup.drivers.swift.SwiftBackupDriver
+      backup_swift_url = SWIFT_URL

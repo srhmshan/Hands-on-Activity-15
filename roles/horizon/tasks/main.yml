@@ -1,0 +1,112 @@
+
+- name: Installing Horizon
+  apt:
+    name:
+      - openstack-dashboard
+    state: latest
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'OPENSTACK_HOST ='
+        line: 'OPENSTACK_HOST = "controller"'
+        state: present
+        backup: yes
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: '^ALLOWED_HOST ='
+        line: "ALLOWED_HOST = ['localhost', '*']"
+        state: present
+        backup: yes
+        backrefs: yes
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'SESSION_ENGINE ='
+        line: "{{ item }}"
+        state: present
+        backup: yes
+
+  with_items:
+        - "SESSION_ENGINE = 'django.contrib.sessions.backends.cache'"
+        - ' '
+        - "CACHES = {"
+        -   "'default': {"
+        -        "'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',"
+        -        "'LOCATION': 'controller:11211',"
+        -   "}"
+        - "}"
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'OPENSTACK_KEYSTONE_URL ='
+        line: 'OPENSTACK_KEYSTONE_URL = "http://%s5000/identity/v3" % OPENSTACK_HOST'
+        state: present
+        backup: yes
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT ='
+        line: 'OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True'
+        state: present
+        backup: yes
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: '^OPENSTACK_API_VERSIONS ='
+        line: "{{ item }}"
+        state: present
+        backup: yes
+
+  with_items:
+        - "OPENSTACK_API_VERSIONS = {"
+        -     '"identity": 3,'
+        -     '"image": 2,'
+        -     '"volume": 3,'
+        - "}"
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'OPENSTACK_KEYSTONE_DEFAULT_DOMAIN ='
+        line: 'OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = "Default"'
+        state: present
+        backup: yes
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'OPENSTACK_KEYSTONE_DEFAULT_ROLE ='
+        line: 'OPENSTACK_KEYSTONE_DEFAULT_ROLE = "user"'
+        state: present
+        backup: yes
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/openstack-dashboard/local_settings.py
+        regexp: 'OPENSTACK_NEUTRON_NETWORK ='
+        line: '{{ item }}'
+        state: present
+        backup: yes
+
+  with_items:
+        - "OPENSTACK_NEUTRON_NETWORK = {"
+        -     "..."
+        -     "'enable_router': False,"
+        -     "'enable_quotas': False,"
+        -     "'enable_ipv6': False,"
+        -     "'enable_distributed_router': False,"
+        -     "'enable_ha_router': False,"
+        -     "'enable_fip_topology_check': False,"
+        - "}"
+
+- name: Configure Openstack file
+  lineinfile:
+        dest: /etc/apache2/conf-available/openstack-dashboard.conf
+        line: 'WSGIApplicationGroup %{GLOBAL}'
